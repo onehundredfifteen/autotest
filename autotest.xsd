@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema  elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:simpleType name="enum-match">
+		<xs:restriction base="xs:string">
+		  <xs:enumeration value="equal"/>
+		  <xs:enumeration value="notequal"/>
+		  <xs:enumeration value="like"/>
+		  <xs:enumeration value="notlike"/>
+		  <xs:enumeration value="none"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="enum-yesno">
+		<xs:restriction base="xs:string">
+		  <xs:enumeration value="yes"/>
+		  <xs:enumeration value="no"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="enum-save">
+		<xs:restriction base="xs:string">
+		  <xs:enumeration value="all"/>
+		  <xs:enumeration value="notpassed"/>
+		  <xs:enumeration value="failed"/>
+		</xs:restriction>
+	</xs:simpleType>
+    <xs:element name="autotest">
+		<xs:complexType>
+		  <xs:sequence> 
+			<xs:element name="properties">
+			  <xs:complexType>
+				<xs:sequence>
+				 <xs:element name="version" type="xs:string"/>
+				 <xs:element name="exe">
+					<xs:simpleType>
+					 <xs:restriction base="xs:string">
+					   <xs:minLength value="1"/>
+					 </xs:restriction>
+					</xs:simpleType>
+                 </xs:element>
+				 <xs:element name="log" minOccurs="0">
+				  <xs:complexType>
+				   <xs:simpleContent>
+					  <xs:extension base="xs:string">
+						<xs:attribute name="append" type="enum-yesno" use="optional"/>
+						<xs:attribute name="open_finished" type="enum-yesno" use="optional"/>
+						<xs:attribute name="save" type="enum-save" use="optional"/>
+					  </xs:extension>
+					</xs:simpleContent>
+				  </xs:complexType>
+				 </xs:element>
+				</xs:sequence>
+			  </xs:complexType>
+			</xs:element>
+			<xs:element name="tests">
+			  <xs:complexType>
+				<xs:sequence>
+				  <xs:element name="case" maxOccurs="unbounded">
+					  <xs:complexType>
+						<xs:sequence>
+						 <xs:element name="args" type="xs:string" minOccurs="0"/>
+						 <xs:element name="result" minOccurs="0">
+						   <xs:complexType>
+							 <xs:sequence>
+								 <xs:element name="exitcode" type="xs:byte" minOccurs="0"/>
+								 <xs:element name="output" minOccurs="0">
+								  <xs:complexType>
+								   <xs:simpleContent>
+									  <xs:extension base="xs:string">
+										<xs:attribute name="match" type="enum-match" use="optional"/>
+										<xs:attribute name="collapse_ws" type="enum-yesno" use="optional"/>
+									  </xs:extension>
+								   </xs:simpleContent>
+								  </xs:complexType>
+								 </xs:element>
+								 <xs:element name="min_execution_time" type="xs:integer" minOccurs="0"/>
+								 <xs:element name="max_execution_time" type="xs:integer" minOccurs="0"/>
+								</xs:sequence>	
+							 </xs:complexType>
+							</xs:element>
+						 <xs:element name="input" type="xs:string" minOccurs="0"/>
+						 <xs:element name="comment" type="xs:string" minOccurs="0"/>
+						</xs:sequence>
+					  </xs:complexType>
+					</xs:element>
+				</xs:sequence>
+			  </xs:complexType>
+			</xs:element>
+		 </xs:sequence>
+		</xs:complexType>
+    </xs:element>
+</xs:schema>

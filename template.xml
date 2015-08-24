@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<autotest xmlns="http://www.ssstudios.ovh.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ssstudios.ovh.org http://www.ssstudios.ovh.org/schemas/autotest.xsd">
+	<properties>
+		<version>1.0</version>
+		<exe>my_buggy_app.exe</exe>
+		<log append="no" open_finished="yes" save="failed">log_buggy_app.txt</log>
+	</properties>
+	<test>
+		<case>
+			<args>param=1</args>
+			<result>
+				<exitcode>0</exitcode>
+				<output match="equal" collapse_ws="yes">BUGGYAPP v. 1.0</output>
+				<min_execution_time>5</min_execution_time>
+				<max_execution_time>30</max_execution_time>
+			</result>
+			<input>69</input>
+			<comment>my first test</comment>
+		</case>
+		<case>
+			<args>param=x</args>
+			<result>
+				<exitcode>1</exitcode>
+				<output match="like">error=404</output>
+			</result>
+			<input/>
+			<comment>a raise-error test</comment>
+		</case>
+	</test>
+</autotest>
+
