@@ -4,7 +4,7 @@
 
 #include "scenario.h"
 
-Scenario::Scenario(std::string p, std::string o, std::string i, int ex, output_match om, time_int min, time_int max, bool mws)
+Scenario::Scenario(std::string p, std::string o, std::string i, int ex, output_match om, time_int min, time_int max, int waitfor, bool mws)
 {
 	test_path = p;
 	output = o;
@@ -15,6 +15,11 @@ Scenario::Scenario(std::string p, std::string o, std::string i, int ex, output_m
 	execution_min = min;
 	execution_max = max;
 	execution_real = 0;
+	
+	waitforso = waitfor;
+	
+	if(execution_max < waitforso)
+		execution_max = waitforso;
 	
 	merge_ws = mws;
 	
@@ -29,7 +34,7 @@ void Scenario::PerformTest()
 {
 	auto cl_start = std::chrono::system_clock::now();
 
-	TestProcess test(test_path, input);
+	TestProcess test(test_path, input, waitforso);
 	
 	execution_real = (std::chrono::duration_cast< std::chrono::milliseconds > (std::chrono::system_clock::now() - cl_start)).count();
 	
@@ -40,7 +45,6 @@ void Scenario::PerformTest()
 	}
 	else
 	{
-	    test.GetRunResult(result_output, result_exit_code);
 		AnalyseResults(test);
 	}
 }
@@ -50,7 +54,10 @@ short Scenario::getResult() const
 	if(escape_error != 0)
 		return -escape_error;
 	
-	return result ? 1 : 0;
+	if(result_timeout)
+			return 1;
+	
+	return result ? 10 : 0;
 }
 
 time_int Scenario::getDuration() const
@@ -61,6 +68,10 @@ time_int Scenario::getDuration() const
 void Scenario::AnalyseResults(TestProcess &t)
 {
 	bool ex_ok, ro_ok, ti_ok;
+	
+	result_output = t.getOutputString();
+	result_exit_code = t.getExitCode();
+	result_timeout = t.getTimeout();
 	
 	if(merge_ws == true)
 	{
@@ -95,7 +106,7 @@ void Scenario::AnalyseResults(TestProcess &t)
 	ti_ok = ( execution_min ? execution_real >= execution_min : true ) && ( execution_max ? execution_real <= execution_max : true );
 	
 	//wynik
-	result = ( ex_ok && ro_ok && ti_ok);
+	result = ( ex_ok && ro_ok && ti_ok && !result_timeout);
 }
 
 void Scenario::EscapeChars(std::string &str, bool input)
@@ -103,7 +114,8 @@ void Scenario::EscapeChars(std::string &str, bool input)
   /*
   Zamienia \n na char('\r\n') , \t, \\
   */
-  std::size_t pos = 0;
+  std::size_t pos = 0, pos2;
+  char charnum;
   
   /* Kłopoty z nowymi liniami.
    * Dwa znaki \n to <br>, łatwy do wpisania znak nowej linii.
@@ -118,6 +130,33 @@ void Scenario::EscapeChars(std::string &str, bool input)
 	  {
 			str.replace(pos, 2, "\n");
 	  }
+	  
+	  //tab
+	  pos = 0;
+	  while ((pos = str.find("\\t", pos)) != std::string::npos)
+	  {
+				str.replace(pos, 2, "\t");
+	  }
+	  
+	  //chars
+	  pos = 0;
+	  while ((pos = str.find("\\CHAR(", pos)) != std::string::npos)
+	  {
+				if( (pos2 = str.find(")", pos) ) != std::string::npos )
+				{
+					if( pos2-(pos+6) < 4 && pos2-(pos+6) > 0)
+					{
+						charnum = atoi( str.substr(pos+6, pos2-(pos+6) ).c_str() );
+						str.erase (pos+1, pos2-pos);
+						str[pos] = charnum;	
+				    }
+					else
+					{
+						str.erase (pos, pos2); 
+					}
+				}
+				else break;
+	  }
   }
   else
   {
@@ -126,13 +165,7 @@ void Scenario::EscapeChars(std::string &str, bool input)
 			str.replace(pos, 2, "\r\n");
 	  }
   }
-  
-  //tab
-  pos = 0;
-  while ((pos = str.find("\\t", pos)) != std::string::npos)
-  {
-			str.replace(pos, 2, "\t");
-  }
+
 }
 
 void Scenario::TrimExtraWhiteSpaces(std::string &str)
@@ -162,9 +195,13 @@ void Scenario::SaveToLog(std::ofstream &log, unsigned test_num)
 			<< "Process terminated with escape code [" << -this->getResult() << "]" << std::endl;
 		return;
 	}
-	else if(this->getResult() > 0)
+	else if(this->getResult() > 10)
 	{
 		log << " PASSED." << std::endl;
+	}
+	else if(this->getResult() == 1)
+	{
+		log << " TIMEOUT." << std::endl;
 	}
 	else 
 	{
@@ -205,6 +242,13 @@ void Scenario::SaveToLog(std::ofstream &log, unsigned test_num)
 		    << "Accepted execution time range = <" << execution_min << "," << execution_max << "> miliseconds.\n";
 		log << "Actual execution time = [" << execution_real << "] miliseconds.";
 	}	
+	
+	if(result_timeout)
+	{
+		log << "\n"
+		    << "Process had to be killed because his execution time exceeded " << waitforso << " miliseconds.";
+	}
+	
 	log << "\n" << std::endl;	
 }
 

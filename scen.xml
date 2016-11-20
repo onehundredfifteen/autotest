@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<autotest xmlns="http://www.ssstudios.ovh.org"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://www.ssstudios.ovh.org http://www.ssstudios.ovh.org/schemas/autotest.xsd">
+	<properties>
+		<version>1.0</version>
+		<exe>test.exe</exe>
+		<log append="no" open_finished="yes" save="all">log.txt</log>
+	</properties>
+	<tests>
+		<case>
+			<args>x</args>
+			<result>
+				<exitcode>0</exitcode>
+				<output match="like" collapse_ws="no">result =115</output>
+			</result>
+			<input>114\n1</input>
+			<comment></comment>
+		</case>
+		<case>
+			<args>a b c</args>
+			<result>
+				<exitcode>1</exitcode>
+				<output match="equal">TEST&#013;&#010;1</output>
+				<min_execution_time>1</min_execution_time>
+				<max_execution_time>20</max_execution_time>
+			</result>
+			<input></input>
+			<comment></comment>
+		</case>
+		<case>
+			<args></args>
+			<result>
+				<exitcode>0</exitcode>
+				<output match="equal" collapse_ws="yes">TEST 2</output>
+			</result>
+			<input>1\n1</input>
+			<comment></comment>
+		</case>
+	</tests>
+</autotest>

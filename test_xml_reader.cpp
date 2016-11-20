@@ -12,6 +12,7 @@ TestReader::TestReader(std::string xml_path)
 	op_log_append = false;
 	op_log_open = false;
 	xmlValid = false;
+	waitfor = 0;
 	
 	//otwarcie pliku
 	std::ifstream in(xml_path.c_str());
@@ -84,6 +85,10 @@ bool TestReader::ReadSettings()
 		else if(strcmp(properties->name(), XML_OP_EXE) == 0)
 		{
 			program_path = properties->value();
+		}
+		else if(strcmp(properties->name(), XML_OP_WAITFOR) == 0)
+		{
+			waitfor =  atoi( properties->value() ) ;
 		}
 		else if(strcmp(properties->name(), XML_OP_LOG) == 0)
 		{
@@ -198,6 +203,7 @@ Scenario * TestReader::getNextScenario()
 						 match, 
 						 atoi( data[ XML_NODENAME_MIN_EXTIME ].c_str()), 
 						 atoi( data[ XML_NODENAME_MAX_EXTIME ].c_str()), 
+						 this->waitfor, 
 						 (data[ XML_NODENAME_MERGE_WS ]) == XML_OP_YES);
 }
 

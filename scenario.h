@@ -19,7 +19,7 @@ class Scenario
 			om_none
 		} output_match;
 		Scenario(){}
-	    Scenario(std::string p, std::string o, std::string i, int ex, output_match om, time_int min, time_int max, bool mws);
+	    Scenario(std::string p, std::string o, std::string i, int ex, output_match om, time_int min, time_int max, int waitfor, bool mws);
 		void PerformTest();
 		
 		short getResult() const;
@@ -36,12 +36,14 @@ class Scenario
 		output_match match;
 		
 		time_int execution_min, execution_max, execution_real; //zakresy wykonania
+		int waitforso; //max czas czekania na program w ms
 		
 		bool result; //ogólny wynik testu
 		short escape_error;//błąd uruchamiania testu
 		
 		std::string result_output;  //rzeczywiste wejście
 		int result_exit_code;       //rzeczywisty kod zakończenia
+		bool result_timeout;
 		
 		void AnalyseResults(TestProcess &t);
 		void EscapeChars(std::string &str, bool input);

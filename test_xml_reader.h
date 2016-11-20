@@ -17,6 +17,7 @@
  #define XML_NODENAME_MIN_EXTIME "min_execution_time"
  #define XML_NODENAME_MAX_EXTIME "max_execution_time"
  
+ 
  #define XML_NODENAME_ROOT  	 "autotest"
  #define XML_NODENAME_PROPERTIES "properties"
  #define XML_NODENAME_TESTS  	 "tests"
@@ -26,6 +27,7 @@
 #ifndef XML_OPS
  #define XML_OP_VERSION 	"version"
  #define XML_OP_EXE 		"exe" 
+ #define XML_OP_WAITFOR     "waitfor"
  #define XML_OP_LOG 		"log"
  #define XML_OP_LOGAPPEND 	"append"
  #define XML_OP_OPENLOG 	"open_finished"
@@ -70,6 +72,7 @@ class TestReader
 		std::string log_path; //ściezka do logu
 		bool op_log_append;  //opcja - otiweraj plik logu w append mode
 		bool op_log_open; //opcja - otwórz log po zakończeniu
+		int waitfor; // czas czekania na watek
 		savelog_mode op_save_mode; //co trafia do logów
 		
 		rapidxml::xml_node <> *read_node;

@@ -7,11 +7,14 @@
 class TestProcess
 {
 	public:
-	    TestProcess(std::string cmd, std::string input);
-		TestProcess() : TestProcess("cmd", "echo no argument passed") {};
+	    TestProcess(std::string cmd, std::string input, int waitfor = 0 );
+		//TestProcess() : TestProcess("cmd", "echo no argument passed") {};
 		
 		unsigned getError() const;
-		void GetRunResult(std::string &, int&);
+		
+		std::string getOutputString() const;
+		int getExitCode() const;
+		bool getTimeout() const;
 		
 	private:
 		HANDLE hChildStd_IN_Rd;
@@ -19,14 +22,19 @@ class TestProcess
 		HANDLE hChildStd_OUT_Rd;
 		HANDLE hChildStd_OUT_Wr;
 		
+		HANDLE Guard;
+		
 		PROCESS_INFORMATION processInformation;
         STARTUPINFO startupInfo;
         SECURITY_ATTRIBUTES securityAttributes;		
+		
 
 		unsigned _error; // liczba >0 oznacza jkiś błąd
 		
 		std::string result_output;
 		int result_exit_code;
+		bool timeout;
+		int waitforso; //milisekundy dla WaitforSingleObject
 		
 		std::string test_input;
 		std::string cmd_arg;
@@ -37,6 +45,10 @@ class TestProcess
 		void WriteInputToPipe();
 		
 		void AddEnterToInput();
+		
+		static DWORD WINAPI GuardThreadStart( LPVOID lpParam );
+		DWORD GuardThreadMonitor();
+		void RunGuardThread();
 };
  
 #endif

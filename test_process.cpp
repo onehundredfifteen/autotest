@@ -1,12 +1,19 @@
+#include <limits>
 #include "test_process.h"
-
+#include <iostream>
 #define BUFSIZE 2048
 
-TestProcess::TestProcess(std::string cmd, std::string input)
+TestProcess::TestProcess(std::string cmd, std::string input, int waitfor)
 {
 	_error = 0;
 	test_input = input;
 	cmd_arg = cmd;
+	timeout = false;
+	
+	if(waitfor == 0)
+		waitforso = std::numeric_limits<int>::max();
+	else
+		waitforso = waitfor;
 	
 	InitPipes();
 	RunTest();
@@ -39,7 +46,7 @@ void TestProcess::InitPipes()
 
 void TestProcess::RunTest()
 {
-    DWORD ecode;
+    DWORD ecode, tecode;
 	
 	ZeroMemory( &processInformation, sizeof(PROCESS_INFORMATION) );
     ZeroMemory( &startupInfo, sizeof(STARTUPINFO) );
@@ -65,17 +72,35 @@ void TestProcess::RunTest()
    {
       if(! CloseHandle( hChildStd_OUT_Wr) || ! CloseHandle( hChildStd_IN_Rd) )
 		_error = 6;
-		
+	
+	 
+	  RunGuardThread();	
 	  WriteInputToPipe();	
 	  ReadOutputFromPipe();
 	  // Successfully created the process.  Wait for it to finish.
       WaitForSingleObject( processInformation.hProcess, INFINITE );
- 
-      // Get the exit code.
-      result = GetExitCodeProcess(processInformation.hProcess, &ecode);
-	  result_exit_code = static_cast<int>(ecode);
+	  
+	  
+	  
+      //czekamy na guarda
+	  if(WaitForSingleObject( Guard, INFINITE ) == WAIT_OBJECT_0)
+	  {
+         if(GetExitCodeThread( Guard, &tecode))
+         {
+			if(tecode == 1)
+			  timeout = true;
+         }
+	  }
+	  
+	  if(!timeout)
+	  {
+		  result = GetExitCodeProcess(processInformation.hProcess, &ecode);
+	      if(result)
+			result_exit_code = static_cast<int>(ecode);
+	  }
  
       // Close the handles.
+	  CloseHandle( Guard );
       CloseHandle( processInformation.hProcess );
       CloseHandle( processInformation.hThread );
 	  CloseHandle( hChildStd_OUT_Rd);
@@ -135,21 +160,55 @@ void TestProcess::WriteInputToPipe()
    }
 } 
 
-unsigned TestProcess::getError() const
-{
-	return _error;
-}
-
-void TestProcess::GetRunResult(std::string &output, int &exitcode)
-{
-	exitcode = result_exit_code;
-	output = result_output;
-}
 
 void TestProcess::AddEnterToInput()
 {
 	if(test_input.back() != '\n')
 		test_input.push_back('\n');
+}
+
+//thread guard func
+void TestProcess::RunGuardThread()
+{
+       DWORD ThreadID; 
+	   Guard = CreateThread(NULL, 0, GuardThreadStart, (void*) this, 0, &ThreadID);
+}
+
+DWORD WINAPI TestProcess::GuardThreadStart( LPVOID lpParam ) 
+{
+	 TestProcess* This = (TestProcess*) lpParam;
+     return This->GuardThreadMonitor();
+} 
+
+DWORD TestProcess::GuardThreadMonitor(void)
+{
+	if( WaitForSingleObject( processInformation.hProcess, waitforso ) == WAIT_TIMEOUT) 
+	{
+			TerminateProcess(processInformation.hProcess, 0);
+			return 1;
+    }
+	
+    return 0; 
+}
+
+//getters
+
+unsigned TestProcess::getError() const
+{
+	return _error;
+}
+
+std::string TestProcess::getOutputString() const
+{
+	return result_output;
+}
+int TestProcess::getExitCode() const
+{
+	return result_exit_code;
+}
+bool TestProcess::getTimeout() const
+{
+	return timeout;
 }
  
 

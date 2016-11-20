@@ -31,6 +31,9 @@ bool GenerateXMLTemplate(std::string fpath)
 	child = doc.allocate_node(rapidxml::node_element, "exe", "my_buggy_app.exe");
 	root->append_node(child);
 	
+	child = doc.allocate_node(rapidxml::node_element, "waitfor", "10000");
+	root->append_node(child);
+	
 	child = doc.allocate_node(rapidxml::node_element, "log", "log_buggy_app.txt");
 		child->append_attribute(doc.allocate_attribute("append", "no"));
 		child->append_attribute(doc.allocate_attribute("open_finished", "yes"));

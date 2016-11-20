@@ -3,11 +3,10 @@
 #include <iomanip> 
 #include <limits>
 
-//#define AT_DEBUG_MODE
-
 #include "scenario.h"
 #include "test_xml_reader.h"
 #include "template_gen.h"
+
 
 int  Go(const char *f);
 void OpenLog(std::ofstream &log, const char * log_path, const char * test_path, bool append);
@@ -59,7 +58,7 @@ int main(int argc, char* argv [])
 			if(c != 'y' && c != 'Y')
 				break;
 					
-			std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); 
+			std::cin.ignore( std::numeric_limits<int>::max() , '\n'); 
 			std::cout << std::endl;
 		}
 	}
@@ -98,13 +97,18 @@ int Go(const char *f)
 		test_result = scenario->getResult();
 		if(test_result >= 0)
 		{
-			if(test_result)
+			if(test_result == 10)
 			{
 				std::cout << "OK (in " << scenario->getDuration() << " ms)";	
 				if(reader.opLogSaveMode() == TestReader::slmAll)
 					scenario->SaveToLog(log, cnt);
 				
 				++ok;
+			}
+			else if(test_result == 1)
+			{
+				std::cout << "TIMEOUT (in " << scenario->getDuration() << " ms)";
+				scenario->SaveToLog(log, cnt);
 			}
 			else
 			{
