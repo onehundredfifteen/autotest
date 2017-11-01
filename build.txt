@@ -1,1 +1,0 @@
-C:\MinGW\bin>g++ -std=c++11 -o "P:\Projekty c++\autotest\autotest.exe" "P:\Projekty c++\autotest\main.cpp" "P:\Projekty c++\autotest\scenario.cpp" "P:\Projekty c++\autotest\template_gen.cpp" "P:\Projekty c++\autotest\test_process.cpp" "P:\Projekty c++\autotest\test_xml_reader.cpp"

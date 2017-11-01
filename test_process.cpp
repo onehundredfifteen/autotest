@@ -1,22 +1,33 @@
 #include <limits>
-#include "test_process.h"
 #include <iostream>
+#include <chrono>
+#include "test_process.h"
+
 #define BUFSIZE 2048
 
-TestProcess::TestProcess(std::string cmd, std::string input, int waitfor)
+
+TestProcess::TestProcess(std::string cmd, std::string input, int max_waitfor)
 {
-	_error = 0;
+	internal_error = 0;
 	test_input = input;
 	cmd_arg = cmd;
 	timeout = false;
+	result_time = 0;
 	
-	if(waitfor == 0)
-		waitforso = std::numeric_limits<int>::max();
+	if(max_waitfor == 0)
+		waitfor = std::numeric_limits<int>::max();
 	else
-		waitforso = waitfor;
+		waitfor = max_waitfor;
 	
 	InitPipes();
-	RunTest();
+	
+	if(internal_error)
+		return;
+
+	auto cl_start = std::chrono::system_clock::now();
+	
+	RunTest(); 
+	result_time = (std::chrono::duration_cast< std::chrono::milliseconds > (std::chrono::system_clock::now() - cl_start)).count();
 }
 
 void TestProcess::InitPipes()
@@ -31,17 +42,17 @@ void TestProcess::InitPipes()
     securityAttributes.bInheritHandle = TRUE; 
     securityAttributes.lpSecurityDescriptor = NULL;
 	
-	if ( !CreatePipe(&hChildStd_OUT_Rd, &hChildStd_OUT_Wr, &securityAttributes, 0) && _error == 0 ) 
-      _error = 1;
+	if ( !CreatePipe(&hChildStd_OUT_Rd, &hChildStd_OUT_Wr, &securityAttributes, 0) && internal_error == 0 ) 
+      internal_error = -1;
 
-    if ( ! SetHandleInformation(hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0) && _error == 0 )
-      _error = 2;
+    if ( ! SetHandleInformation(hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0) && internal_error == 0 )
+      internal_error = -2;
 
-    if (! CreatePipe(&hChildStd_IN_Rd, &hChildStd_IN_Wr, &securityAttributes, 0) && _error == 0) 
-      _error = 3;
+    if (! CreatePipe(&hChildStd_IN_Rd, &hChildStd_IN_Wr, &securityAttributes, 0) && internal_error == 0) 
+      internal_error = -3;
 
-    if ( ! SetHandleInformation(hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0) && _error == 0)
-      _error = 4;	
+    if ( ! SetHandleInformation(hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0) && internal_error == 0)
+      internal_error = -4;	
 }
 
 void TestProcess::RunTest()
@@ -63,32 +74,29 @@ void TestProcess::RunTest()
                                 NULL, NULL, TRUE, 
                                 NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW, 
                                 NULL, NULL, &startupInfo, &processInformation);
- 
+
    if (!result)
-   {
-      _error = 5;
+   { 
+      internal_error = GetLastError();
    }
    else
    {
       if(! CloseHandle( hChildStd_OUT_Wr) || ! CloseHandle( hChildStd_IN_Rd) )
-		_error = 6;
+		internal_error = -5;
 	
-	 
 	  RunGuardThread();	
 	  WriteInputToPipe();	
 	  ReadOutputFromPipe();
+
 	  // Successfully created the process.  Wait for it to finish.
-      WaitForSingleObject( processInformation.hProcess, INFINITE );
-	  
-	  
+      //WaitForSingleObject( processInformation.hProcess, INFINITE );
 	  
       //czekamy na guarda
 	  if(WaitForSingleObject( Guard, INFINITE ) == WAIT_OBJECT_0)
 	  {
          if(GetExitCodeThread( Guard, &tecode))
          {
-			if(tecode == 1)
-			  timeout = true;
+			  timeout = tecode;
          }
 	  }
 	  
@@ -96,7 +104,7 @@ void TestProcess::RunTest()
 	  {
 		  result = GetExitCodeProcess(processInformation.hProcess, &ecode);
 	      if(result)
-			result_exit_code = static_cast<int>(ecode);
+			  result_exit_code = static_cast<int>(ecode);
 	  }
  
       // Close the handles.
@@ -108,7 +116,7 @@ void TestProcess::RunTest()
       if (!result)
       {
          // Could not get exit code.
-         _error = 7;
+         internal_error = -6;
       }
    }
 }
@@ -123,12 +131,9 @@ void TestProcess::ReadOutputFromPipe()
    { 
 	  bSuccess = ReadFile( hChildStd_OUT_Rd, chBuf, BUFSIZE, &dwRead, NULL);
      
-	  if( ! bSuccess || dwRead == 0 ) 
+	  if( ! bSuccess || dwRead == 0) 
 		break; 
-		
-	  //if(WaitForSingleObject(processInformation.hProcess,0) == WAIT_OBJECT_0)
-		//break;
-		
+	
 	  result_output += std::string(chBuf, dwRead);
    } 
 } 
@@ -156,7 +161,7 @@ void TestProcess::WriteInputToPipe()
 	   // Close the pipe handle so the child process stops reading. 
 	 
 	   if ( ! CloseHandle(hChildStd_IN_Wr) ) 
-		  _error = 8;
+		  internal_error = -8;
    }
 } 
 
@@ -182,9 +187,18 @@ DWORD WINAPI TestProcess::GuardThreadStart( LPVOID lpParam )
 
 DWORD TestProcess::GuardThreadMonitor(void)
 {
-	if( WaitForSingleObject( processInformation.hProcess, waitforso ) == WAIT_TIMEOUT) 
+	if( WaitForSingleObject( processInformation.hProcess, waitfor ) == WAIT_TIMEOUT) 
 	{
+			//if the process is executing too long, kill it
 			TerminateProcess(processInformation.hProcess, 0);
+			
+			#if (_WIN32_WINNT >= 0x0600)
+				//and cancel pending io in pipes
+				CancelIoEx(hChildStd_OUT_Rd, NULL);
+				CancelIoEx(hChildStd_IN_Wr, NULL);
+			
+			#endif
+			
 			return 1;
     }
 	
@@ -193,20 +207,24 @@ DWORD TestProcess::GuardThreadMonitor(void)
 
 //getters
 
-unsigned TestProcess::getError() const
+short TestProcess::getError() const
 {
-	return _error;
+	return internal_error;
 }
 
 std::string TestProcess::getOutputString() const
 {
 	return result_output;
 }
+time_int TestProcess::getTime() const
+{
+	return result_time;
+}
 int TestProcess::getExitCode() const
 {
 	return result_exit_code;
 }
-bool TestProcess::getTimeout() const
+bool TestProcess::isTimeout() const
 {
 	return timeout;
 }

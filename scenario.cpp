@@ -1,86 +1,72 @@
-#include <iostream>
 #include <algorithm>
-#include <chrono>
-
+#include <iomanip>
 #include "scenario.h"
 
-Scenario::Scenario(std::string p, std::string o, std::string i, int ex, output_match om, time_int min, time_int max, int waitfor, bool mws)
+Scenario::Scenario(std::string path, std::string out, std::string in, int texit_code, 
+                   output_match om, time_int tmin, time_int tmax, int waitfor,  
+				   ScenarioMetadata &sm)
 {
-	test_path = p;
-	output = o;
-	input = i;
-	exit_code = ex;
+	test = nullptr;
+	
+	test_path = path;
+	output = out;
+	input = in;
+	exit_code = texit_code;
 	match = om;
 	
-	execution_min = min;
-	execution_max = max;
-	execution_real = 0;
+	execution_min = tmin;
+	execution_max = tmax;
 	
-	waitforso = waitfor;
+	maxwaitfor = waitfor;
 	
-	if(execution_max < waitforso)
-		execution_max = waitforso;
+	metadata = sm;
 	
-	merge_ws = mws;
+	if(execution_max > maxwaitfor)
+		maxwaitfor = execution_max;
 	
-	result = false;
-	escape_error = 0;
+	result = r_error;
 	
 	EscapeChars(input, true);
 	EscapeChars(output, false);
 }
 
+Scenario::~Scenario()
+{
+	if(test)
+		delete test;
+}
+
 void Scenario::PerformTest()
 {
-	auto cl_start = std::chrono::system_clock::now();
-
-	TestProcess test(test_path, input, waitforso);
+	test = new TestProcess(test_path, input, maxwaitfor);
 	
-	execution_real = (std::chrono::duration_cast< std::chrono::milliseconds > (std::chrono::system_clock::now() - cl_start)).count();
-	
-	if(test.getError())
-	{
-		std::cout << "!> Error! Escape code = " << test.getError() << "\t";
-		escape_error = test.getError();
-	}
-	else
-	{
-		AnalyseResults(test);
-	}
+	result = AnalyseResults();
 }
 
-short Scenario::getResult() const
+Scenario::run_result Scenario::getTestResult()
 {
-	if(escape_error != 0)
-		return -escape_error;
-	
-	if(result_timeout)
-			return 1;
-	
-	return result ? 10 : 0;
+	return result;
 }
 
-time_int Scenario::getDuration() const
-{
-	return execution_real;
-}
-
-void Scenario::AnalyseResults(TestProcess &t)
+Scenario::run_result Scenario::AnalyseResults()
 {
 	bool ex_ok, ro_ok, ti_ok;
 	
-	result_output = t.getOutputString();
-	result_exit_code = t.getExitCode();
-	result_timeout = t.getTimeout();
+	if(test == nullptr || test->getError())
+	{
+		return r_error;
+	}
 	
-	if(merge_ws == true)
+	result_output = test->getOutputString();
+	
+	if(metadata.merge_ws == true)
 	{
 		TrimExtraWhiteSpaces(output);
 		TrimExtraWhiteSpaces(result_output);
 	}
 	
 	//exit-code
-	ex_ok = (result_exit_code == exit_code);
+	ex_ok = (test->getExitCode() == exit_code);
 	
 	//output
 	switch(match)
@@ -103,27 +89,32 @@ void Scenario::AnalyseResults(TestProcess &t)
 	}
 	
 	//timing
-	ti_ok = ( execution_min ? execution_real >= execution_min : true ) && ( execution_max ? execution_real <= execution_max : true );
+	ti_ok = ( execution_min ? test->getTime() >= execution_min : true ) && ( execution_max ? test->getTime() <= execution_max : true );
 	
-	//wynik
-	result = ( ex_ok && ro_ok && ti_ok && !result_timeout);
+	//result
+	if( ex_ok && ro_ok && ti_ok && test->isTimeout() == false)
+		return r_ok;
+    else if(test->isTimeout())
+		return r_timeout;
+	
+	return r_fail;
 }
 
 void Scenario::EscapeChars(std::string &str, bool input)
 {
   /*
-  Zamienia \n na char('\r\n') , \t, \\
+  For input
+  Replace "\n" to newline
+  Replace \t to TAB
+  Replace \{char_code} to single char of given code, where char_code is 3 digit max
+  
+  for output
+  Replace newline to Windows newline 
   */
+  const short char_esc_len = 2;
   std::size_t pos = 0, pos2;
   char charnum;
   
-  /* Kłopoty z nowymi liniami.
-   * Dwa znaki \n to <br>, łatwy do wpisania znak nowej linii.
-   * \n to char(10)
-   * jezeli jest input, nalezy zamienić <BR> na \n, które przez strumień zostanie zamieniony na \r\n
-   * jeżeli jest output, to alby porównac do result_output rozwijam <BR> do \r\n
-   * Reszta znaków normalnie.
-  */
   if(input)
   {
 	  while ((pos = str.find("\\n", pos)) != std::string::npos)
@@ -140,13 +131,13 @@ void Scenario::EscapeChars(std::string &str, bool input)
 	  
 	  //chars
 	  pos = 0;
-	  while ((pos = str.find("\\CHAR(", pos)) != std::string::npos)
+	  while ((pos = str.find("\\{", pos)) != std::string::npos)
 	  {
-				if( (pos2 = str.find(")", pos) ) != std::string::npos )
+				if( (pos2 = str.find("}", pos) ) != std::string::npos )
 				{
-					if( pos2-(pos+6) < 4 && pos2-(pos+6) > 0)
+					if( pos2-(pos+char_esc_len) < 4 && pos2-(pos+char_esc_len) > 0)
 					{
-						charnum = atoi( str.substr(pos+6, pos2-(pos+6) ).c_str() );
+						charnum = (char)atoi( str.substr(pos+char_esc_len, pos2-(pos+char_esc_len) ).c_str() );
 						str.erase (pos+1, pos2-pos);
 						str[pos] = charnum;	
 				    }
@@ -171,85 +162,95 @@ void Scenario::EscapeChars(std::string &str, bool input)
 void Scenario::TrimExtraWhiteSpaces(std::string &str)
 {
 	/*
-	* Każdy ciąg biąłych znaków jest zamieniany na jedną spację.
+	* Merge a series of whitespaces to just single space
 	*/
 	std::size_t pos = 0;
 	std::replace_if (str.begin(), str.end(), [](char c){return std::iscntrl(c);}, ' '); 
    
-    while ((pos = str.find("  ", pos)) != std::string::npos) //każde dwie spacje na jedną
+    while ((pos = str.find("  ", pos)) != std::string::npos)
     {
 			str.replace(pos, 2, " ");
     }
 }
 
-void Scenario::SaveToLog(std::ofstream &log, unsigned test_num)
+
+void Scenario::printSummary(std::stringstream &ss)
 {
-	if(!log.is_open())
-		return;
-	
-	log << "> TEST #" << test_num;
+	ss << "> TEST #" << metadata.test_number << "; " << metadata.name << "\n\t\"" << metadata.comment << "\"\n";
 		
-	if(this->getResult() < 0)
-	{
-		log << " NOT COMPLETED.\n"
-			<< "Process terminated with escape code [" << -this->getResult() << "]" << std::endl;
-		return;
-	}
-	else if(this->getResult() > 10)
-	{
-		log << " PASSED." << std::endl;
-	}
-	else if(this->getResult() == 1)
-	{
-		log << " TIMEOUT." << std::endl;
-	}
-	else 
-	{
-		log << " FAILED." << std::endl;
-	}
-		
-	log << "Expected exit code = [" << exit_code << "]\n";
-	log << "Actual exit code   = [" << result_exit_code << "]\n";
-	log << "Expected output = \n[" << output << "]\n";
-	log << "Actual output = \n[" << result_output << "]\n";
+	ss << "Arguments = [" << test_path << "]\n";
+	ss << "Expected exit code = [" << exit_code << "]\n";
+	ss << "Real exit code   = [" << test->getExitCode() << "]\n";
+	ss << "Expected output = \n[" << output << "]\n";
+	ss << "Real output = \n[" << result_output << "]\n";
 	
-	log << "Output match method = [";
+	ss << "Output match method [";
 	switch(match)
 	{
 		case om_like:
-			log << "LIKE";
+			ss << "LIKE";
 			break;
 		case om_notlike:
-			log << "NOT-LIKE";
+			ss << "NOT-LIKE";
 			break;
 		case om_equal:
-			log << "EQUAL";
+			ss << "EQUAL";
 			break;
 		case om_notequal:
-			log << "NOT-EQUAL";
+			ss << "NOT-EQUAL";
 			break;
 		case om_none:
 		default:
-		    log << "NONE-IGNORE";
+		    ss << "NONE-IGNORE";
 	}
 	
-	log << "]\n";
-	log << "Whitespace collapse option was [" << (merge_ws ? "ON" : "OFF") << "]";
+	ss << "]; ";
+	ss << "Whitespace merge option [" << (metadata.merge_ws ? "ON" : "OFF") << "]";
 	
 	if(execution_min || execution_max)
 	{
-		log << "\n"
-		    << "Accepted execution time range = <" << execution_min << "," << execution_max << "> miliseconds.\n";
-		log << "Actual execution time = [" << execution_real << "] miliseconds.";
+		ss << "\n"
+		   << "Accepted execution time range = <" << execution_min << "," << execution_max << "> miliseconds.\n";
+		ss << "Real execution time = [" << test->getTime() << "] miliseconds.";
 	}	
 	
-	if(result_timeout)
+	if(test->isTimeout())
 	{
-		log << "\n"
-		    << "Process had to be killed because his execution time exceeded " << waitforso << " miliseconds.";
+		ss << "\n"
+		   << "Process had to be killed because his execution time exceeded " << maxwaitfor << " miliseconds.";
 	}
 	
-	log << "\n" << std::endl;	
+	ss << "\n" << std::endl;	
+}
+
+void Scenario::printBrief(std::ostream &stream)
+{
+	stream << std::setw(16) << (this->metadata.name.empty() ? this->metadata.name : std::string("["+this->metadata.name+"]")) << ": ";
+	
+	if(this->result == Scenario::r_error)
+	{
+		stream << "NOT COMPLETED. An internal exception occured, error code = " << this->test->getExitCode();
+	}
+	else
+	{
+		switch(this->result)
+		{
+			case Scenario::r_ok: stream << "OK"; break;
+			case Scenario::r_timeout: stream << "TIMEOUT"; break;
+			case Scenario::r_fail: 
+			default:
+				stream << "FAILED"; break;
+		}
+		
+	    stream << " (in " << this->test->getTime() << " ms)";
+	}
+}
+
+
+std::ostream &operator<<(std::ostream &stream, Scenario &scenario)
+{
+	scenario.printBrief(stream);
+	return stream;
 }
 
 /*

@@ -1,6 +1,8 @@
 #include <iostream>
+#include <fstream>
 #include <cstring>
 #include "test_xml_reader.h"
+#include "repeated_scenario.h"
 
 TestReader::TestReader(std::string xml_path)
 {
@@ -19,7 +21,7 @@ TestReader::TestReader(std::string xml_path)
 	if(!in)
 	{
 		//p.what();
-		std::cout << "!> Cannot open file \"" << xml_path << "\"." << std::endl; 
+		std::cerr << "!> Cannot open file \"" << xml_path << "\"." << std::endl; 
 		return;
 	}
 	
@@ -34,7 +36,7 @@ TestReader::TestReader(std::string xml_path)
 	}
 	catch( rapidxml::parse_error p )
 	{
-		std::cout << "!> XML Parse Error: " << p.what() << std::endl;
+		std::cerr << "!> XML Parse Error: " << p.what() << std::endl;
 		return;
 	}
 	
@@ -47,18 +49,18 @@ TestReader::TestReader(std::string xml_path)
 	
 		if(this->read_node == NULL)
 		{
-			std::cout << "!> File \"" << xml_path << "\" is corrupted." << std::endl;
+			std::cerr << "!> File \"" << xml_path << "\" is corrupted." << std::endl;
 		}
 		else if(program_path.empty())
 		{
-			std::cout << "!> Not all required data are specified." << std::endl;
+			std::cerr << "!> Not all required data are specified." << std::endl;
 		}
 		else 
 		{
 			ReadScenarios();
 			if(!hasNextScenario())
 			{
-				std::cout << "!> No test scenarios found." << std::endl;
+				std::cerr << "!> No test scenarios found." << std::endl;
 			}
 			else
 				xmlValid = true;
@@ -68,18 +70,35 @@ TestReader::TestReader(std::string xml_path)
 	xml_doc.clear();
 }
 
+void TestReader::NodeDefault(NodeData &data)
+{
+	data[ XML_OP_TESTCASE_NAME ] = "";
+	data[ XML_NODENAME_DESCRIPTION ] = "";
+	data[ XML_NODENAME_MERGE_WS ] = XML_OP_NO;
+	data[ XML_NODENAME_MATCH ] == "";
+	
+	data[ XML_NODENAME_ARGS ] = ""; 
+    data[ XML_NODENAME_OUTPUT ] = "";
+	data[ XML_NODENAME_INPUT ] = "";
+	data[ XML_NODENAME_EXITCODE ] = "0";
+				
+	data[ XML_NODENAME_MIN_EXTIME ] = "0";
+	data[ XML_NODENAME_MAX_EXTIME ] = "0";
+	data[ XML_NODENAME_REPEAT ] = "1";
+}
+
 
 bool TestReader::ReadSettings() 
 {
 	rapidxml::xml_attribute <> *node_attr;
 	rapidxml::xml_node <> *properties;
-	//opcje - ustawienia
+	
 	for(properties = read_node->first_node(); properties; properties = properties->next_sibling() ) 
 	{
-		if(strcmp(properties->name(),  XML_OP_VERSION) == 0
-		&& strcmp(properties->value(), XML_VERSION) != 0)
+		if(strcmp(properties->name(),  XML_OP_VERSION) == 0 && 
+		  (strcmp(properties->value(), XML_VERSION) != 0 && strcmp(properties->value(), XML_VERSION_1_0_OBSOLETE) != 0))
 		{
-			std::cout << "!> Version " << properties->value() << " is not supported." << std::endl;
+			std::cerr << "!> Version " << properties->value() << " is not supported." << std::endl;
 			return false;
 		}
 		else if(strcmp(properties->name(), XML_OP_EXE) == 0)
@@ -105,6 +124,7 @@ bool TestReader::ReadSettings()
 				{
 					op_log_open = (strcmp(node_attr->value(), XML_OP_YES) == 0);
 				}
+				/* not supported since version 1.1
 				else if(strcmp(node_attr->name(), XML_OP_SAVETOLOG) == 0)
 				{
 					if( strcmp(node_attr->value(), "all") == 0 )
@@ -113,7 +133,7 @@ bool TestReader::ReadSettings()
 						op_save_mode = slmNotpassed;
 					else 
 					    op_save_mode = slmFailed;
-				}
+				}*/
 			}
 		}
 	}
@@ -125,14 +145,27 @@ void TestReader::ReadScenarios()
 {
 	rapidxml::xml_node <> *node_result, *node_scen;
 	rapidxml::xml_attribute <> *output_attr;
+	rapidxml::xml_attribute <> *case_attr;
 	
 	while(this->read_node)
 	{
 		NodeData node_data;
+		this->NodeDefault(node_data);
+		
+		for(case_attr = read_node->first_attribute(); case_attr; case_attr = case_attr->next_attribute() )
+		{
+			if(strcmp(case_attr->name(), XML_OP_TESTCASE_NAME) == 0)
+			{
+				node_data[ case_attr->name() ] = case_attr->value();
+			}
+		}
+		
 		for(node_scen = read_node->first_node(); node_scen; node_scen = node_scen->next_sibling() ) 
 		{
-			if(strcmp(node_scen->name(), XML_NODENAME_ARGS) == 0 
-			|| strcmp(node_scen->name(), XML_NODENAME_INPUT) == 0 )
+			if(strcmp(node_scen->name(), XML_NODENAME_ARGS) == 0  
+			|| strcmp(node_scen->name(), XML_NODENAME_INPUT) == 0
+			|| strcmp(node_scen->name(), XML_NODENAME_REPEAT) == 0
+			|| strcmp(node_scen->name(), XML_NODENAME_DESCRIPTION) == 0)
 			{
 				node_data[ node_scen->name() ] = node_scen->value();
 			}
@@ -172,12 +205,10 @@ void TestReader::ReadScenarios()
 	}
 }
 
-Scenario * TestReader::getNextScenario()
+Scenario * TestReader::getScenario(NodeData &data)
 {
-    Scenario::output_match match;
-	NodeData data = nodes.front();
-	nodes.pop_front();
-
+	Scenario::output_match match;
+	
 	if(data[ XML_NODENAME_MATCH ] == "like" || data[ XML_NODENAME_MATCH ].empty())
 		match = Scenario::om_like;
 	else if(data[ XML_NODENAME_MATCH ] == "notlike")
@@ -187,15 +218,14 @@ Scenario * TestReader::getNextScenario()
 	else if(data[ XML_NODENAME_MATCH ] == "notequal")
 		match = Scenario::om_notequal;
 	else 
-		match = Scenario::om_none;
-		
-#ifdef AT_DEBUG_MODE
-	std::cout <<" \nar="<< data[ XML_NODENAME_ARGS ] << ", i=" << data[ XML_NODENAME_INPUT ] << ", o=" << data[ XML_NODENAME_OUTPUT ] << ", oo=" << data[ XML_NODENAME_MATCH ] << ", ec=" 
-	          << data[ XML_NODENAME_EXITCODE ] << "("<<atoi( data[ XML_NODENAME_EXITCODE ].c_str())<<"), em=" << atoi( data[ XML_NODENAME_MIN_EXTIME ].c_str()) << ", ex=" << atoi( data[ XML_NODENAME_MAX_EXTIME ].c_str()) 
-			  <<" ws=" << (data[ XML_NODENAME_MERGE_WS ] == "yes") <<std::endl;
-#endif			  
+		match = Scenario::om_none;			  
 			  
-	//atoi dla pustego stringa zwróci 0, to będa domyslne wartości, np exit_code = success
+	ScenarioMetadata sm;
+
+	sm.name = data[ XML_OP_TESTCASE_NAME ];
+	sm.comment = data[ XML_NODENAME_DESCRIPTION ];
+	sm.merge_ws = ( data[ XML_NODENAME_MERGE_WS ] ) == XML_OP_YES;
+	
 	return new Scenario( (this->program_path+" "+data[ XML_NODENAME_ARGS ]), 
 						 data[ XML_NODENAME_OUTPUT ],
 						 data[ XML_NODENAME_INPUT ], 
@@ -204,7 +234,23 @@ Scenario * TestReader::getNextScenario()
 						 atoi( data[ XML_NODENAME_MIN_EXTIME ].c_str()), 
 						 atoi( data[ XML_NODENAME_MAX_EXTIME ].c_str()), 
 						 this->waitfor, 
-						 (data[ XML_NODENAME_MERGE_WS ]) == XML_OP_YES);
+						 sm
+					   );
+}
+
+Scenario * TestReader::getNextScenario()
+{
+    int repeat;
+	NodeData data = nodes.front();
+	nodes.pop_front();
+
+	repeat = atoi( data[ XML_NODENAME_REPEAT ].c_str());
+	
+	if(repeat > 1){ 
+		return new RepeatedScenario(getScenario(data), repeat);
+	}
+	else
+		return getScenario(data);
 }
 
 bool TestReader::hasNextScenario() const
@@ -231,8 +277,4 @@ bool TestReader::opLogAppend() const
 bool TestReader::opLogOpenFin() const
 {
 	return op_log_open;
-}
-TestReader::savelog_mode TestReader::opLogSaveMode() const
-{
-	return op_save_mode;
 }

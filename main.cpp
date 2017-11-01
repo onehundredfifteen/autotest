@@ -1,29 +1,31 @@
+#include <sstream>
 #include <fstream>
-#include <iostream>
 #include <iomanip> 
 #include <limits>
 
+#include "tee_stream.h"
 #include "scenario.h"
 #include "test_xml_reader.h"
 #include "template_gen.h"
 
 
-int  Go(const char *f);
-void OpenLog(std::ofstream &log, const char * log_path, const char * test_path, bool append);
-void CloseLog(std::ofstream &log);
+std::ofstream log_file;
+
+int  Go(const char *scenario_file);
+bool OpenLog(const char * log_path, const char * test_path);
+void CloseLog();
 
 
 int main(int argc, char* argv [])
 {
-	std::cout << "Autotest v. 1.1 (" << __DATE__ << ")\nTesting Tool for console applications.\n"
-			  << "(c) by onehundredfifteen 2015\n" << std::endl;
+	std::cout << "Autotest v. 1.1 (" << __DATE__ << ")\nTesting tool for console applications.\n"
+			  << "(c) by onehundredfifteen 2015-2017\n" << std::endl;
 	
 	if(argc > 1)
 	{
 		if(strcmp(argv[1], "help") == 0)
 		{
 			std::cout << "\nUsage:\nautotest [\"filepath.xml\"] - run test cases defined in file \"filepath.xml\".\n" 
-					  << "autotest - and type filepath directly to input.\n"
 					  << "autotest template_gen - generate a test cases file template.\n\n"
 					  << "All settings are defined in test cases *.xml files.";
 		}
@@ -44,15 +46,31 @@ int main(int argc, char* argv [])
 	{
 		std::string pfile;
 		char c;
+		
+		std::cout << "type 'template' as path to generate a template instead.\n" << std::endl;
 			
 		while(true)
 		{
-			std::cout << "Enter path to xml file with test cases: ";
+			std::cout << "Specify the path to the xml file with test cases: ";
+			
 			std::getline (std::cin, pfile);
+			
+			if(pfile == "template")
+			{
+				if(GenerateXMLTemplate("template.xml"))
+				{
+					std::cout << "Saved template to \"template.xml\".";
+				}
+				else std::cout << "!> Cannot open file \"template.xml\" to write.";
+			}
+			else
+			{
+				if( Go(pfile.c_str()) ){
+					std::cout << "!> Cannot run file \"" << pfile << "\".";
+				}
+			}
 				
-			Go(pfile.c_str());
-				
-			std::cout << "Do you want to run other set of tests? [y/n]: ";
+			std::cout << "\nDo you want to run another set of tests? [y/n]: ";
 			std::cin >> c;
 				
 			if(c != 'y' && c != 'Y')
@@ -66,101 +84,82 @@ int main(int argc, char* argv [])
 	return 0;		
 }
 
-int Go(const char *f)
+int Go(const char *scenario_file)
 {
 	Scenario *scenario;
-	std::ofstream log;
+	
+	std::stringstream log_stream;
+	char * log_path;
 	unsigned cnt = 0, completed = 0, ok = 0;
-	short test_result;
+	
+	Scenario::run_result test_result;
 	
 	//read file
-	TestReader reader(f);
+	TestReader reader(scenario_file);
 	if(!reader.isValid())
 		return 1;
 	
 	//open log
 	if(reader.getLogFile())
 	{
-		OpenLog(log, reader.getLogFile(), f, reader.opLogAppend());
-		if(log.fail())
+		if(OpenLog(reader.getLogFile(), scenario_file) == false)
 			return 2;
 	}
+	
+	teestream tee_stream(std::cout, log_stream);
 	
     //run scenarios
 	while(reader.hasNextScenario())
 	{
-		std::cout <<"> Running Test #"<< ++cnt << "...\t";
+		tee_stream << "Running test " << std::setw(2) << ++cnt;
 		
 		scenario = reader.getNextScenario();
 		scenario->PerformTest();
+		test_result = scenario->getTestResult();
 		
-		test_result = scenario->getResult();
-		if(test_result >= 0)
+		scenario->metadata.test_number = cnt;
+	
+		if(test_result != Scenario::r_error)
 		{
-			if(test_result == 10)
-			{
-				std::cout << "OK (in " << scenario->getDuration() << " ms)";	
-				if(reader.opLogSaveMode() == TestReader::slmAll)
-					scenario->SaveToLog(log, cnt);
-				
+			if(test_result == Scenario::r_ok)
 				++ok;
+			else{
+				scenario->printSummary(log_stream);
 			}
-			else if(test_result == 1)
-			{
-				std::cout << "TIMEOUT (in " << scenario->getDuration() << " ms)";
-				scenario->SaveToLog(log, cnt);
-			}
-			else
-			{
-				std::cout << "FAIL (in " << scenario->getDuration() << " ms)";
-				scenario->SaveToLog(log, cnt);
-			}
+			
 			++completed;
 		}
-		else
-		{
-			std::cout << "NOT COMPLETED";
-			if(reader.opLogSaveMode() == TestReader::slmNotpassed)
-					scenario->SaveToLog(log, cnt);
-		}
-		std::cout << std::endl;
+	
+		tee_stream << *scenario << std::endl;
 		
 		delete scenario;
 	}
 	
 	//podsumowanie
 	if(completed == cnt)
-		std::cout << "*****\nAll " << cnt << " tests completed. ";
+		tee_stream << std::string(15, '*') << "\nAll " << cnt << " tests completed. ";
 	else 
-	    std::cout << "*****\n" << completed << "/" << cnt << " tests completed. ";
+	    tee_stream << std::string(15, '*') << "\n" << completed << "/" << cnt << " tests completed. ";
 	
 	if(completed > ok)
-		std::cout << (completed - ok) << " failed (" << std::setprecision(3) << ((float)(completed - ok))* 100.0 / (float)completed << std::fixed << "%)" << std::endl;
+		tee_stream << (completed - ok) << " failed (" << std::setprecision(3) << ((float)(completed - ok))* 100.0 / (float)completed << std::fixed << "%)" << std::endl;
 	else if(completed)	//> 0 && completed == ok
-		std::cout << "100% tests passed." << std::endl;
+		tee_stream << "100% tests passed." << std::endl;
 	
 	
-	if(log.is_open() && 
-	  (completed > ok 
-	  || (reader.opLogSaveMode() == TestReader::slmNotpassed && completed < cnt) 
-	  ||  reader.opLogSaveMode() == TestReader::slmAll
-	  ) )
+	log_file << log_stream.str() << std::flush;
+	CloseLog();
+	
+	if(reader.opLogOpenFin())
 	{
-		if(reader.opLogOpenFin())
-		{
-			ShellExecute(0, 0, reader.getLogFile(), 0, 0, SW_SHOW);
-		}
-		else 
-			std::cout << "Additional informations are available in log file \"" << reader.getLogFile() <<"\"" << std::endl;
+		ShellExecute(0, 0, reader.getLogFile(), 0, 0, SW_SHOW);
 	}
-	
-	CloseLog(log);
 	
 	return 0;
 }
 
 
-void OpenLog(std::ofstream &log, const char * log_path, const char * test_path, bool append)
+bool OpenLog(const char * log_path, const char * test_path)
 {
 	#define DTTMFMT "%Y-%m-%d %H:%M:%S "
 	#define DTTMSZ 21
@@ -170,21 +169,25 @@ void OpenLog(std::ofstream &log, const char * log_path, const char * test_path, 
 	
     strftime (buff, DTTMSZ, DTTMFMT, localtime (&t));
 	
-    log.open(log_path, append ? std::ofstream::app : std::ofstream::out); //sztuczka - out jest zawsze załozona
-	if(log.fail())
+    log_file.open(log_path, std::ofstream::app); 
+	if(log_file.fail())
 	{
-		std::cout << "!> Cannot open log file \"" << log_path << "\"!" << std::endl;
-		return;
+		std::cerr << "!> Cannot open log file \"" << log_path << "\"!" << std::endl;
+		return false;
 	}
 
-    log << "AUTOTEST LOG " << buff << "\nTEST CASE FILE: " << test_path << "\n***********" << std::endl;
+	log_file << std::string(15, '=') << " BEGIN " << std::string(15, '=') << std::endl;
+    log_file << "AUTOTEST LOG " << buff << "\nTEST CASE FILE: " << test_path << "\n***********" << std::endl;
+	log_file << std::string(37, '=') << std::endl;
+	
+	return true;
 }
 
-void CloseLog(std::ofstream &log)
+void CloseLog()
 {
-	if(log.is_open())
+	if(log_file.is_open())
 	{
-		log << "*** END ***" << std::endl;
-		log.close();
+		log_file << "end" << std::endl;
+		log_file.close();
 	}
 }

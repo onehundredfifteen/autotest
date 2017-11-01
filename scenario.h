@@ -1,15 +1,24 @@
 #ifndef SCENARIO_H
  #define SCENARIO_H
 
-#include <fstream> 
-#include <string>
+#include <iostream>
+#include <sstream> 
 #include "test_process.h"
+#include "scenario_metadata.h"
 
-typedef unsigned long int time_int;
+
 
 class Scenario
 {
 	public:
+		typedef enum 
+		{
+			r_ok,
+			r_fail,
+			r_timeout,
+			r_error
+		} run_result;
+	
 		typedef enum 
 		{
 			om_like,
@@ -18,36 +27,55 @@ class Scenario
 			om_notequal,
 			om_none
 		} output_match;
+		
 		Scenario(){}
-	    Scenario(std::string p, std::string o, std::string i, int ex, output_match om, time_int min, time_int max, int waitfor, bool mws);
-		void PerformTest();
 		
-		short getResult() const;
-		time_int getDuration() const;
+	    Scenario(std::string path, 
+				 std::string out, 
+				 std::string in, 
+				 int texit_code, 
+				 output_match om, 
+				 time_int tmin, 
+				 time_int tmax, 
+				 int waitfor,  
+				 ScenarioMetadata &sm);
+				 
+		virtual ~Scenario();
 		
-		void SaveToLog(std::ofstream &log, unsigned);
+		virtual void PerformTest();
+		virtual run_result getTestResult();
 		
+		virtual void printSummary(std::stringstream &ss);
+
 	private:
-		std::string test_path; // sciezka + argumenty
-		std::string output; //spdziewne wyjście
-		std::string input;  //podane wejście
-		int exit_code;      //spodziewany kod zakończenia
-		bool merge_ws;      //ciągi i inne białe znaki sa łączone do jednej spacji
+	 
+		std::string test_path; // path to tested exe + args
+		std::string output; //expected output template
+		std::string input;  //given input
+		int exit_code;      //expected exit code
+		
 		output_match match;
+		time_int execution_min, execution_max;// execution_real; //exe times
+		int maxwaitfor; //max wait time fot test
+		unsigned repeat;
 		
-		time_int execution_min, execution_max, execution_real; //zakresy wykonania
-		int waitforso; //max czas czekania na program w ms
+		run_result result; 
+		std::string result_output;  //real output
+	
+	public:
+		TestProcess * test;
+		ScenarioMetadata metadata;
 		
-		bool result; //ogólny wynik testu
-		short escape_error;//błąd uruchamiania testu
+	private:	
+		run_result AnalyseResults();
 		
-		std::string result_output;  //rzeczywiste wejście
-		int result_exit_code;       //rzeczywisty kod zakończenia
-		bool result_timeout;
-		
-		void AnalyseResults(TestProcess &t);
 		void EscapeChars(std::string &str, bool input);
 		void TrimExtraWhiteSpaces(std::string &str);
+		
+	public:	
+		virtual void printBrief(std::ostream &stream);
+		
+		friend std::ostream &operator<<(std::ostream &stream, Scenario &scenario);
 };
  
 #endif

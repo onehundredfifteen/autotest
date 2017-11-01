@@ -4,17 +4,20 @@
 #include <windows.h>
 #include <string>
 
+typedef unsigned long int time_int;
+
 class TestProcess
 {
 	public:
-	    TestProcess(std::string cmd, std::string input, int waitfor = 0 );
+	    TestProcess(std::string cmd, std::string input, int max_waitfor = 0 );
 		//TestProcess() : TestProcess("cmd", "echo no argument passed") {};
 		
-		unsigned getError() const;
+		short getError() const;
 		
 		std::string getOutputString() const;
+		time_int getTime() const;
 		int getExitCode() const;
-		bool getTimeout() const;
+		bool isTimeout() const;
 		
 	private:
 		HANDLE hChildStd_IN_Rd;
@@ -29,18 +32,22 @@ class TestProcess
         SECURITY_ATTRIBUTES securityAttributes;		
 		
 
-		unsigned _error; // liczba >0 oznacza jkiś błąd
+		short internal_error; 
 		
 		std::string result_output;
 		int result_exit_code;
+		time_int result_time;
+		
 		bool timeout;
-		int waitforso; //milisekundy dla WaitforSingleObject
+		int waitfor; //max miliseconds to wait, else kill
 		
 		std::string test_input;
 		std::string cmd_arg;
 		
-		void InitPipes();
+		
 		void RunTest();
+		
+		void InitPipes();
 		void ReadOutputFromPipe();
 		void WriteInputToPipe();
 		

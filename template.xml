@@ -1,30 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<autotest xmlns="http://www.ssstudios.ovh.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ssstudios.ovh.org http://www.ssstudios.ovh.org/schemas/autotest.xsd">
+<autotest xmlns="http://onehundredfifteen.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://onehundredfifteen.com http://onehundredfifteen.com/schemas/autotest.xsd">
 	<properties>
-		<version>1.0</version>
+		<version>1.1</version>
 		<exe>my_buggy_app.exe</exe>
-		<log append="no" open_finished="yes" save="failed">log_buggy_app.txt</log>
+		<waitfor>5000</waitfor>
+		<log append="no" open_finished="yes">log_buggy_app.txt</log>
 	</properties>
 	<test>
-		<case>
-			<args>param=1</args>
+		<case name="My 1st Test">
+			<args>buggy_app_param_to_run_with=1</args>
 			<result>
 				<exitcode>0</exitcode>
 				<output match="equal" collapse_ws="yes">BUGGYAPP v. 1.0</output>
 				<min_execution_time>5</min_execution_time>
 				<max_execution_time>30</max_execution_time>
 			</result>
-			<input>69</input>
+			<input>test-input</input>
 			<comment>my first test</comment>
 		</case>
 		<case>
-			<args>param=x</args>
+			<args>test.com</args>
 			<result>
 				<exitcode>1</exitcode>
 				<output match="like">error=404</output>
 			</result>
-			<input/>
 			<comment>a raise-error test</comment>
+		</case>
+		<case name="measure avg time">
+			<input>144/8
+</input>
+			<result>
+				<exitcode>0</exitcode>
+				<output match="like">144/8=18</output>
+			</result>
+			<repeat>10</repeat>
 		</case>
 	</test>
 </autotest>
