@@ -106,7 +106,7 @@ int Go(const char *scenario_file)
 			return 2;
 	}
 	
-	teestream tee_stream(std::cout, log_stream);
+	teestream tee_stream(std::cout, log_file);
 	
     //run scenarios
 	while(reader.hasNextScenario())
@@ -177,7 +177,7 @@ bool OpenLog(const char * log_path, const char * test_path)
 	}
 
 	log_file << std::string(15, '=') << " BEGIN " << std::string(15, '=') << std::endl;
-    log_file << "AUTOTEST LOG " << buff << "\nTEST CASE FILE: " << test_path << "\n***********" << std::endl;
+    log_file << "AUTOTEST LOG " << buff << "\nTEST CASE FILE: " << test_path << std::endl;
 	log_file << std::string(37, '=') << std::endl;
 	
 	return true;

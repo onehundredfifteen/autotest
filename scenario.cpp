@@ -225,7 +225,7 @@ void Scenario::printSummary(std::stringstream &ss)
 
 void Scenario::printBrief(std::ostream &stream)
 {
-	stream << std::setw(16) << (this->metadata.name.empty() ? this->metadata.name : std::string("["+this->metadata.name+"]")) << ": ";
+	stream << std::setw(16) << (this->metadata.name.empty() ? this->metadata.name : std::string("\""+this->metadata.name+"\"")) << ": ";
 	
 	if(this->result == Scenario::r_error)
 	{
@@ -239,7 +239,7 @@ void Scenario::printBrief(std::ostream &stream)
 			case Scenario::r_timeout: stream << "TIMEOUT"; break;
 			case Scenario::r_fail: 
 			default:
-				stream << "FAILED"; break;
+				stream << "FAIL"; break;
 		}
 		
 	    stream << " (in " << this->test->getTime() << " ms)";

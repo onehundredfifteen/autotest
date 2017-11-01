@@ -63,7 +63,7 @@ void RepeatedScenario::printBrief(std::ostream &stream)
 {
 	float avgtime;
 	
-	stream << std::setw(16) << (this->scenarios[0].metadata.name.empty() ? this->scenarios[0].metadata.name : std::string("["+this->scenarios[0].metadata.name+"]")) << ": ";
+	stream << std::setw(16) << (this->scenarios[0].metadata.name.empty() ? this->scenarios[0].metadata.name : std::string("\""+this->scenarios[0].metadata.name+"\"")) << ": ";
 	
 	if(repeat == 0)
 	{
@@ -79,7 +79,7 @@ void RepeatedScenario::printBrief(std::ostream &stream)
 	
 	for(int i = 0; i < repeat; ++i)
 	{
-		stream << "\n\t";
+		stream << "\n" << std::setw(15) << "." << i+1;
 		scenarios[i].printBrief(stream);
 	}
 }

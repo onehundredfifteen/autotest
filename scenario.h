@@ -28,7 +28,9 @@ class Scenario
 			om_none
 		} output_match;
 		
-		Scenario(){}
+		Scenario(){
+			test = nullptr;
+		}
 		
 	    Scenario(std::string path, 
 				 std::string out, 
