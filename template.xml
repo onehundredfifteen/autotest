@@ -6,7 +6,7 @@
 		<waitfor>5000</waitfor>
 		<log append="no" open_finished="yes">log_buggy_app.txt</log>
 	</properties>
-	<test>
+	<tests>
 		<case name="My 1st Test">
 			<args>buggy_app_param_to_run_with=1</args>
 			<result>
@@ -35,6 +35,6 @@
 			</result>
 			<repeat>10</repeat>
 		</case>
-	</test>
+	</tests>
 </autotest>
 

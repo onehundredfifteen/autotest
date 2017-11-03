@@ -41,7 +41,7 @@ bool GenerateXMLTemplate(std::string fpath)
 	root->append_node(child);
 		
 	//--------- tests
-	root = doc.allocate_node(rapidxml::node_element, "test");
+	root = doc.allocate_node(rapidxml::node_element, "tests");
 	autotest->append_node(root);
 	
 	child = doc.allocate_node(rapidxml::node_element, "case");
