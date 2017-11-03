@@ -15,5 +15,7 @@ All you need is to prepare a xml file with test scenarios.
 
 Minimum Windows Vista is recommended.
 
+![Screenshot](screen.png)
+
 
 
