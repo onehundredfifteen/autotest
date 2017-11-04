@@ -3,7 +3,7 @@
 	<properties>
 		<version>1.1</version>
 		<exe>my_buggy_app.exe</exe>
-		<waitfor>5000</waitfor>
+		<timeout>5000</timeout>
 		<log append="no" open_finished="yes">log_buggy_app.txt</log>
 	</properties>
 	<tests>
@@ -27,8 +27,7 @@
 			<comment>a raise-error test</comment>
 		</case>
 		<case name="measure avg time">
-			<input>144/8
-</input>
+			<input>144/8\n</input>
 			<result>
 				<exitcode>0</exitcode>
 				<output match="like">144/8=18</output>
