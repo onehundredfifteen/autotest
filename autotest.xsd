@@ -15,20 +15,43 @@
 		  <xs:enumeration value="no"/>
 		</xs:restriction>
 	</xs:simpleType>
-	<xs:simpleType name="enum-save">
-		<xs:restriction base="xs:string">
-		  <xs:enumeration value="all"/>
-		  <xs:enumeration value="notpassed"/>
-		  <xs:enumeration value="failed"/>
-		</xs:restriction>
-	</xs:simpleType>
+	
+	<xs:complexType name="test-case">
+		<xs:sequence>
+			<xs:element name="args" type="xs:string" minOccurs="0"/>
+				<xs:element name="result" minOccurs="0">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="exitcode" type="xs:integer" minOccurs="0"/>
+							<xs:element name="output" minOccurs="0">
+								<xs:complexType>
+								   <xs:simpleContent>
+									  <xs:extension base="xs:string">
+										<xs:attribute name="match" type="enum-match" use="optional"/>
+										<xs:attribute name="collapse_ws" type="enum-yesno" use="optional"/>
+									  </xs:extension>
+								   </xs:simpleContent>
+								</xs:complexType>
+							</xs:element>
+								<xs:element name="min_execution_time" type="xs:nonNegativeInteger" minOccurs="0"/>
+								<xs:element name="max_execution_time" type="xs:nonNegativeInteger" minOccurs="0"/>
+						</xs:sequence>	
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="input" type="xs:string" minOccurs="0"/>
+				<xs:element name="repeat" type="xs:nonNegativeInteger" minOccurs="0"/>
+				<xs:element name="comment" type="xs:string" minOccurs="0"/>	
+		</xs:sequence>	
+	</xs:complexType>
+
+
     <xs:element name="autotest">
 		<xs:complexType>
 		  <xs:sequence> 
 			<xs:element name="properties">
 			  <xs:complexType>
 				<xs:sequence>
-				 <xs:element name="version" type="xs:string"/>
+				 <xs:element name="version" type="xs:string" fixed="1.1"/>
 				 <xs:element name="exe">
 					<xs:simpleType>
 					 <xs:restriction base="xs:string">
@@ -36,13 +59,13 @@
 					 </xs:restriction>
 					</xs:simpleType>
                  </xs:element>
-				 <xs:element name="log" minOccurs="0">
+				 <xs:element name="timeout" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1"/>
+				 <xs:element name="log" minOccurs="0" maxOccurs="1">
 				  <xs:complexType>
 				   <xs:simpleContent>
 					  <xs:extension base="xs:string">
 						<xs:attribute name="append" type="enum-yesno" use="optional"/>
 						<xs:attribute name="open_finished" type="enum-yesno" use="optional"/>
-						<xs:attribute name="save" type="enum-save" use="optional"/>
 					  </xs:extension>
 					</xs:simpleContent>
 				  </xs:complexType>
@@ -54,33 +77,14 @@
 			  <xs:complexType>
 				<xs:sequence>
 				  <xs:element name="case" maxOccurs="unbounded">
-					  <xs:complexType>
-						<xs:sequence>
-						 <xs:element name="args" type="xs:string" minOccurs="0"/>
-						 <xs:element name="result" minOccurs="0">
-						   <xs:complexType>
-							 <xs:sequence>
-								 <xs:element name="exitcode" type="xs:byte" minOccurs="0"/>
-								 <xs:element name="output" minOccurs="0">
-								  <xs:complexType>
-								   <xs:simpleContent>
-									  <xs:extension base="xs:string">
-										<xs:attribute name="match" type="enum-match" use="optional"/>
-										<xs:attribute name="collapse_ws" type="enum-yesno" use="optional"/>
-									  </xs:extension>
-								   </xs:simpleContent>
-								  </xs:complexType>
-								 </xs:element>
-								 <xs:element name="min_execution_time" type="xs:integer" minOccurs="0"/>
-								 <xs:element name="max_execution_time" type="xs:integer" minOccurs="0"/>
-								</xs:sequence>	
-							 </xs:complexType>
-							</xs:element>
-						 <xs:element name="input" type="xs:string" minOccurs="0"/>
-						 <xs:element name="comment" type="xs:string" minOccurs="0"/>
-						</xs:sequence>
-					  </xs:complexType>
-					</xs:element>
+					<xs:complexType>
+						<xs:complexContent>	   
+							<xs:extension base="test-case">
+								<xs:attribute name="name" type="xs:string" use="optional"/>
+							</xs:extension>
+						</xs:complexContent>
+					</xs:complexType>		   
+				  </xs:element>
 				</xs:sequence>
 			  </xs:complexType>
 			</xs:element>

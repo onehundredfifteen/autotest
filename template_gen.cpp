@@ -31,7 +31,7 @@ bool GenerateXMLTemplate(std::string fpath)
 	child = doc.allocate_node(rapidxml::node_element, "exe", "my_buggy_app.exe");
 	root->append_node(child);
 	
-	child = doc.allocate_node(rapidxml::node_element, "waitfor", "5000");
+	child = doc.allocate_node(rapidxml::node_element, "timeout", "5000");
 	root->append_node(child);
 	
 	child = doc.allocate_node(rapidxml::node_element, "log", "log_buggy_app.txt");
@@ -100,7 +100,7 @@ bool GenerateXMLTemplate(std::string fpath)
 		child->append_attribute(doc.allocate_attribute("name", "measure avg time"));
 	root->append_node(child);
 	
-	child2 = doc.allocate_node(rapidxml::node_element, "input", "144/8\n");
+	child2 = doc.allocate_node(rapidxml::node_element, "input", "144/8\\n");
 	child->append_node(child2);
 	
 	child2 = doc.allocate_node(rapidxml::node_element, "result");

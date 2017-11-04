@@ -30,7 +30,7 @@
 #ifndef XML_OPS
  #define XML_OP_VERSION 	"version"
  #define XML_OP_EXE 		"exe" 
- #define XML_OP_WAITFOR     "waitfor"
+ #define XML_OP_WAITFOR     "timeout"
  #define XML_OP_LOG 		"log"
  #define XML_OP_LOGAPPEND 	"append"
  #define XML_OP_OPENLOG 	"open_finished"
